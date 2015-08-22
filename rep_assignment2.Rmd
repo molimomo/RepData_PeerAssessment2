@@ -1,0 +1,57 @@
+---
+title: "Reproduciable Research Assignment 2"
+author: "Mao-Lin Li"
+date: "August 20, 2015"
+output: html_document
+---
+
+# Synoposis
+
+In this report, we analyze the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database to evaluate the factors that affecting population health and economic consequences. We use the data from 1950 to the end in November 2011. We take fatalities and injuries as the reference for evaluating population health and calculate crop damage as the ference for mesuring economic consequences.
+
+```{r echo=TRUE}
+knitr::opts_chunk$set(cache=TRUE)
+# Load dplyr library
+library(dplyr)
+# Load data
+stormData<-read.csv("repdata-data-StormData.csv", stringsAsFactors=FALSE)
+# We select the subset that fatalities, injuries, property damage or crop damage large than zero.
+targetData<-filter(stormData, FATALITIES>0 | INJURIES > 0 | PROPDMG > 0 | CROPDMG >0)
+```
+
+### 1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+* Data Processing
+
+Here we take the number of fatalities and injuries as the reference for evaluating population health.
+
+```{r echo=TRUE}
+# Aggregate the sum of fatalities according to type
+fatalData<-aggregate(targetData$FATALITIES, list(type=targetData$EVTYPE), sum, na.rm=TRUE)
+names(fatalData)<-c("Type", "Fatalities")
+# Aggregate the sum of injuries according to type
+injureData<-aggregate(targetData$INJURIES, list(typr=targetData$EVTYPE), sum, na.rm=TRUE)
+names(injureData)<-c("Type", "Injuries")
+# Aggregate the sum of fatalities and injuries according to type.
+impactData<-aggregate(targetData$FATALITIES + targetData$INJURIES, list(type=targetData$EVTYPE), sum, na.rm=TRUE)
+names(impactData)<-c("Type", "FatalitiesAndInjuries")
+# Merge above three datasets into one data frame
+healthResult<-merge(fatalData, injureData)
+healthResult<-merge(healthResult, impactData)
+healthResult<-healthResult[order(healthResult$FatalitiesAndInjuries, decreasing = TRUE),]
+head(healthResult)
+```
+
+
+From above result, we know Tornado brings the most harm to population health.
+
+### 2. Across the United States, which types of events have the greatest economic consequences?
+
+* Data Processing
+
+Here we take the number of crop damage as the reference for evaluating population health.
+
+```{r, echo=TRUE}
+
+```
+
