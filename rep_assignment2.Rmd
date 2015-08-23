@@ -9,23 +9,23 @@ output: html_document
 
 In this report, we analyze the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database to evaluate the factors that affecting population health and economic consequences. We use the data from 1950 to the end in November 2011. We take fatalities and injuries as the reference for evaluating population health and calculate crop damage as the ference for mesuring economic consequences.
 
+# Data Processings
+
 ```{r echo=TRUE}
 knitr::opts_chunk$set(cache=TRUE)
 # Load dplyr library
 library(dplyr)
 # Load data
 stormData<-read.csv("repdata-data-StormData.csv", stringsAsFactors=FALSE)
-# We select the subset that fatalities, injuries, property damage or crop damage large than zero.
-targetData<-filter(stormData, FATALITIES>0 | INJURIES > 0 | PROPDMG > 0 | CROPDMG >0)
 ```
 
 ### 1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
 
-* Data Processing
-
-Here we take the number of fatalities and injuries as the reference for evaluating population health.
+Here we take the number of fatalities and injuries as the reference for evaluating population health. We select data that FATALITIES, INJURIES, PROPDMG and CROPDMG larger than zero as valid data. And then aggregate data according to type. Finally, we evaluate the damage by their sum. 
 
 ```{r echo=TRUE}
+# We select the subset that fatalities, injuries, property damage or crop damage large than zero.
+targetData<-filter(stormData, FATALITIES > 0 | INJURIES > 0 | PROPDMG > 0 | CROPDMG > 0)
 # Aggregate the sum of fatalities according to type
 fatalData<-aggregate(targetData$FATALITIES, list(type=targetData$EVTYPE), sum, na.rm=TRUE)
 names(fatalData)<-c("Type", "Fatalities")
@@ -42,16 +42,77 @@ healthResult<-healthResult[order(healthResult$FatalitiesAndInjuries, decreasing 
 head(healthResult)
 ```
 
+### 2. Across the United States, which types of events have the greatest economic consequences?
+
+Here we take the number of crop damage as the reference for evaluating population health. First we filter some invalid data, which PROPDMGEXP and CROPDMGEXP are not "", "K", "M" and "B". And then we convert these characters and calculate the sum of them to evaluate economic consequences. 
+
+```{r echo=TRUE}
+# Filter data to extract valid data.
+validData<-filter(targetData, PROPDMGEXP %in% c("", "K", "M", "B") & CROPDMGEXP %in% c("", "K", "M", "B") )
+```
+
+Here we use a function to convert characters in PROPDMGEXP and CROPDMGEXP to numeric. 
+
+```{r echo=TRUE}
+# function to convert characters to units
+charToNum<-function(num, char){
+ if (char == "K") {
+      num * 1000
+  } else if (char == "M") {
+      num * 1000000
+  } else if (char == "B") {
+      num * 1000000000
+  }else{
+      num
+  }
+}
+```
+
+We convert PROPDMGEXP and CROPDMGEXP and then aggregate them by type.
+
+```{r echo=TRUE}
+# Convert characters to numeric
+validData$PROPDMG <- mapply(charToNum, validData$PROPDMG, validData$PROPDMGEXP)
+validData$CROPDMG <- mapply(charToNum, validData$CROPDMG, validData$CROPDMGEXP)
+# Aggregate the sum of Prop. damage according to type
+propdmgData<-aggregate(validData$PROPDMG, list(type=validData$EVTYPE), sum)
+names(propdmgData)<-c("Type", "PropertyDmg")
+# Aggregate the sum of Crop. damage according to type
+cropdmgData<-aggregate(validData$CROPDMG, list(type=validData$EVTYPE), sum)
+names(cropdmgData)<-c("Type", "CropDmg")
+# Aggregate the sum of Crop. damage according to type
+totalDmgData<-aggregate(validData$PROPDMG + validData$CROPDMG, list(type=validData$EVTYPE), sum, na.rm=TRUE)
+names(totalDmgData)<-c("Type", "PropDMGAndCropDMG")
+# Merge above three datasets into one data frame
+dmgResult<-merge(propdmgData, cropdmgData)
+dmgResult<-merge(dmgResult, totalDmgData)
+dmgResult<-dmgResult[order(dmgResult$PropDMGAndCropDMG, decreasing = TRUE),]
+head(dmgResult)
+```
+
+# Results
+
+Here we use ggplot to depict the results from above analysis.
+```{r echo=TRUE}
+library(ggplot2)
+```
+
+1. Total population damage
+```{r echo=TRUE}
+ggplot(healthResult[1:15, ], aes(x = reorder(Type, FatalitiesAndInjuries), y = FatalitiesAndInjuries)) + 
+    geom_bar(stat = "identity") + 
+      coord_flip() + 
+        labs(x = "Types", y = "Fatalities and Injuries", title = "Top 15 Fatalities and Injuries Type" )
+```
 
 From above result, we know Tornado brings the most harm to population health.
 
-### 2. Across the United States, which types of events have the greatest economic consequences?
-
-* Data Processing
-
-Here we take the number of crop damage as the reference for evaluating population health.
-
-```{r, echo=TRUE}
-
+2. Total economic damage
+```{r echo=TRUE}
+ggplot(dmgResult[1:15, ], aes(x = reorder(Type, PropDMGAndCropDMG), y = PropDMGAndCropDMG)) + 
+    geom_bar(stat = "identity") + 
+      coord_flip() + 
+        labs(x = "Types", y = "PropDMG and CropDMG", title = "Top 15 Prop. and Crop damage Type" )
 ```
 
+From above result, we know Flood brings the most economic damage.
